@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F5F2EA">
+<title>시험 어휘 연습</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   선생님 설정 구역 — 이 부분만 고치시면 됩니다
+   ═══════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  EXAM_TITLE: "2026학년도 2학기 1차 정기시험",
+  SUBJECT:    "공통영어2",
+
+  // ① 구글 시트 연동 (선택) — 사용법은 파일 맨 아래 안내 참고
+  //    비워 두면 아래 FALLBACK_CSV(파일에 들어 있는 어휘)를 사용합니다.
+  SHEET_CSV_URL: "",
+
+  // ② 게임 · 복습 설정
+  MISSION_SIZE:      10,                    // '오늘의 연습' 한 번에 나오는 어휘 수
+  MISSION_BONUS_XP:  20,                    // 오늘의 연습을 끝냈을 때(하루 1회) 보너스 경험치
+  STAGE_XP:          [0, 40, 200, 500, 1000], // 알 → 어휘 새싹 → 어휘 수집가 → 어휘 고수 → 어휘 전설 로 바뀌는 경험치
+  INTERVAL_DAYS:     [0, 1, 3, 7, 14],      // 복습 상자 1~4단계의 복습 간격(일). 맨 앞 0은 새 단어
+
+  // 전설이 되려면 XP 조건에 더해 '마스터(복습 4단계)' 어휘가 이 개수 이상이어야 합니다.
+  // (73개 중 60개 ≈ 82%) 어휘가 이보다 적으면 전체 개수가 기준이 됩니다.
+  // 개수 대신 비율로 정하려면 LEGEND_MASTER_COUNT 를 0 으로 두고 LEGEND_MASTER_RATIO(예: 0.8)를 쓰세요.
+  LEGEND_MASTER_COUNT: 60,
+  LEGEND_MASTER_RATIO: 0.8,
+
+  // ③ 전설 달성 알림용 구글 폼 (선택) — 사용법은 파일 맨 아래 안내 참고
+  //    전설이 된 학생이 [선생님께 알리기]를 누르고, 열린 폼에서 직접 [제출]을 눌렀을 때만 선생님께 전달됩니다.
+  //    FORM_URL 과 여섯 개의 entry 값을 모두 채워야 이 기능이 나타납니다. 비워 두면 학생에게는 보이지 않습니다.
+  FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSd7_WXIUAPdvpnUsXWXX9JWuKCCXZCwPYa1XaSpHODbFlxeAw/viewform",
+  FORM_FIELDS: {
+    who:      "entry.1532156683",   // 이름
+    pet:      "entry.1252546358",   // 캐릭터
+    date:     "entry.2090072520",   // 전설 달성일
+    mastered: "entry.157086393",    // 마스터 어휘 수
+    days:     "entry.61330828",     // 연습한 날
+    weak:     "entry.1806751179"    // 자주 틀린 어휘
+  },
+  // 폼에서 학생이 직접 고르거나 적는 항목(사이트가 채우지 않음). 학생 미리보기에 "제출 화면에서 직접 입력"으로 표시됩니다.
+  // 해당 항목이 없으면 [] 로 두세요.
+  FORM_MANUAL_ITEMS: ["반"],
+
+  // ④ 교사용 확인 모드: true 로 두면 홈 화면에 [전설 상태로 만들기] 같은 테스트 버튼이 나타납니다.
+  //    학생에게 배포하는 파일은 반드시 false 로 두세요.
+  TEST_MODE: false
+};
+
+/* 시트를 연결하지 않았거나 불러오기에 실패했을 때 쓰는 어휘 (시트와 같은 형식) */
+const FALLBACK_CSV = `passage,word,meaning,cefr,syn1,syn2,syn3,ant1,ant2,ant3,also
+1번,redistribution,재분배,C1,reallocation,redivision,reapportionment,concentration,hoarding,accumulation,
+1번,compensate,보상하다·만회하다,C1,counterbalance,redress,make up,shortchange,deprive,neglect,
+1번,sustain,유지하다·지탱하다,C1,maintain,support,uphold,abandon,undermine,weaken,
+2번,exposure,노출,C1,contact,disclosure,revelation,protection,shelter,concealment,
+2번,demanding,요구가 많은·힘든,C1,challenging,taxing,strenuous,easy,undemanding,effortless,
+2번,tolerance,내성·관용,C1,endurance,resistance,acceptance,intolerance,sensitivity,prejudice,
+4번,remedy,치료(법)·해결책,C1,cure,treatment,solution,affliction,ailment,harm,
+4번,beneficial,이로운,C1,advantageous,favorable,helpful,harmful,detrimental,damaging,
+5번,overlook,간과하다,C1,neglect,disregard,miss,notice,observe,heed,
+6번,discernible,식별 가능한,C2,noticeable,perceptible,visible,imperceptible,invisible,indistinct,
+6번,conspicuous,눈에 띄는,C2,obvious,noticeable,prominent,inconspicuous,unnoticeable,hidden,
+6번,dazzle,눈부시게 하다·압도하다,C2,blind,overwhelm,amaze,dull,bore,underwhelm,
+6번,detectable,감지할 수 있는,C1,perceptible,observable,traceable,undetectable,imperceptible,invisible,
+6번,offset,상쇄하다,C1,counterbalance,cancel out,neutralize,magnify,amplify,aggravate,
+6번,perception,지각·인식,C1,awareness,insight,understanding,ignorance,unawareness,misconception,
+6번,divert,(방향을) 돌리다,C1,redirect,deflect,shift,continue,maintain,focus,
+6번,illuminate,비추다·밝히다,C1,light up,brighten,clarify,darken,obscure,shade,
+6번,prey,먹이·사냥감,C1,quarry,victim,game,predator,hunter,attacker,
+6번,readily,쉽게·기꺼이,C1,easily,willingly,promptly,reluctantly,unwillingly,hesitantly,
+7번,invariant,변하지 않는,C2,constant,unchanging,fixed,variable,changeable,fluctuating,
+7번,recede,물러나다·멀어지다,C2,retreat,withdraw,ebb,advance,approach,proceed,
+7번,fluctuate,변동하다,C1,vary,waver,oscillate,stabilize,remain,persist,
+8번,intimate,넌지시 암시하다 (동사),C2,imply,hint,suggest,state,declare,announce,
+8번,incorporate,포함하다·통합하다,C1,include,integrate,embody,exclude,separate,omit,
+8번,privilege,우대하다·특권을 주다 (동사),C1,favor,prioritize,advantage,disadvantage,slight,marginalize,
+8번,undermine,약화시키다,C1,weaken,erode,sabotage,strengthen,reinforce,support,
+10번,entail,수반하다,C2,involve,require,necessitate,preclude,exclude,prevent,21번
+10번,exacerbate,악화시키다,C2,aggravate,worsen,intensify,alleviate,relieve,ease,
+10번,finite,유한한,C2,limited,restricted,bounded,infinite,unlimited,boundless,
+10번,curtail,줄이다·축소하다,C2,reduce,cut,restrict,extend,expand,prolong,
+10번,breakthrough,획기적 발전,C1,advance,discovery,leap,setback,stagnation,failure,
+10번,substantial,상당한,C1,considerable,significant,sizable,negligible,trivial,slight,
+10번,facilitate,촉진하다·용이하게 하다,C1,enable,promote,ease,hinder,impede,obstruct,
+10번,utilization,활용,C1,use,employment,application,waste,disuse,neglect,
+10번,mitigate,완화하다,C1,alleviate,ease,lessen,aggravate,worsen,intensify,17번
+10번,reliance,의존,C1,dependence,dependency,trust,independence,self-sufficiency,autonomy,
+10번,optimize,최적화하다,C1,maximize,perfect,streamline,waste,mismanage,neglect,
+10번,sophistication,정교함·세련됨,C1,complexity,refinement,advancement,simplicity,crudeness,naivety,
+10번,extraction,추출·채취,C1,removal,mining,withdrawal,insertion,injection,addition,
+11번,adversity,역경,C2,hardship,misfortune,difficulty,prosperity,fortune,comfort,
+11번,transformative,변화를 일으키는,C2,revolutionary,radical,life-changing,superficial,minor,unchanging,
+11번,catalyst,촉매·계기,C2,trigger,stimulus,spark,deterrent,obstacle,hindrance,
+11번,inherent,내재된·고유한,C2,intrinsic,innate,built-in,acquired,extrinsic,external,21번
+11번,intensify,심화시키다,C1,heighten,strengthen,escalate,weaken,diminish,reduce,
+17번,forsake,버리다·저버리다,C2,abandon,desert,renounce,keep,retain,cherish,
+17번,alleviate,완화하다,C2,ease,relieve,lessen,aggravate,worsen,exacerbate,
+17번,aggravate,악화시키다,C2,worsen,exacerbate,intensify,alleviate,relieve,soothe,
+17번,relinquish,내려놓다·포기하다,C2,give up,surrender,renounce,retain,keep,seize,
+17번,perpetuate,영속시키다,C2,preserve,prolong,maintain,end,terminate,abolish,
+17번,abate,누그러지다,C2,subside,ease,diminish,intensify,escalate,increase,
+17번,cultivate,기르다·함양하다,C1,develop,foster,nurture,neglect,abandon,stifle,
+17번,compound,악화시키다·가중하다,C1,worsen,aggravate,intensify,ease,relieve,reduce,
+18번,impede,방해하다,C2,hinder,obstruct,hamper,facilitate,aid,promote,
+18번,exhibit,보여 주다·나타내다,C1,display,show,demonstrate,conceal,hide,suppress,
+18번,conceal,숨기다,C1,hide,cover,disguise,reveal,expose,disclose,
+18번,discard,버리다,C1,throw away,dispose of,ditch,keep,retain,preserve,
+18번,stabilize,안정시키다,C1,steady,settle,balance,destabilize,unsettle,disrupt,
+18번,suppress,억누르다,C1,repress,restrain,stifle,express,release,unleash,
+18번,reshape,재편하다,C1,remodel,restructure,transform,preserve,maintain,retain,
+19번,ingrained,깊이 밴·뿌리 깊은,C2,deep-rooted,entrenched,inherent,superficial,transient,shallow,
+19번,groundless,근거 없는,C2,unfounded,baseless,unjustified,well-founded,justified,valid,
+19번,unexamined,검토되지 않은,C2,unchecked,unquestioned,unexplored,scrutinized,analyzed,investigated,
+19번,prevalent,널리 퍼진,C1,widespread,common,pervasive,rare,uncommon,isolated,
+19번,embrace,받아들이다·포용하다,C1,accept,welcome,adopt,reject,spurn,refuse,
+19번,dismiss,일축하다·묵살하다,C1,reject,disregard,brush aside,accept,consider,welcome,
+21번,avail oneself of,~을 이용하다,C2,make use of,take advantage of,utilize,ignore,neglect,refuse,
+21번,trustworthy,믿을 만한,C1,reliable,dependable,honest,unreliable,dishonest,deceitful,
+21번,dwell on,~에 연연하다·곱씹다,C1,brood over,obsess over,ruminate on,forget,ignore,disregard,
+21번,alter,바꾸다,C1,change,modify,adjust,preserve,maintain,retain,
+21번,component,구성 요소,C1,element,part,ingredient,whole,entirety,totality,
+21번,disruption,혼란·중단,C1,disturbance,interruption,upheaval,continuity,order,stability,
+21번,contemplate,숙고하다,C1,consider,ponder,reflect on,ignore,disregard,overlook,
+21번,attentive,주의 깊은,C1,alert,observant,mindful,inattentive,careless,negligent,
+`;
+</script>
+
+<style>
+:root{
+  --paper:#F5F2EA; --card:#FFFDF8; --ink:#1B2A41; --ink2:#5E6878; --rule:#DDD6C6;
+  --syn:#2447A8; --syn-t:#E6ECFA;
+  --ant:#9A5B00; --ant-t:#FBEFD9;
+  --ok:#1F7A4D;  --ok-t:#E1F2E8;
+  --no:#C0392B;  --no-t:#FBE6E3;
+  --hl:#FFE08A;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background-color:var(--paper);
+  background-image:repeating-linear-gradient(transparent,transparent 31px,rgba(27,42,65,.045) 32px);
+  color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.wrap{max-width:480px;margin:0 auto;padding:22px 18px 56px}
+[hidden]{display:none !important}
+button{font-family:inherit}
+
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink2);margin:0 0 8px}
+h1{font-family:var(--sans);font-weight:700;font-size:30px;line-height:1.15;margin:0 0 6px;letter-spacing:-.02em}
+h1 em{font-style:normal;background:linear-gradient(transparent 58%,var(--hl) 58%)}
+.tagline{font-size:17px;font-weight:500;line-height:1.45;margin:0 0 10px;word-break:keep-all}
+.sub{color:var(--ink2);font-size:14px;margin:0 0 24px}
+
+.sec{margin-bottom:26px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.sec-n{font-family:var(--mono);font-size:11px;color:var(--ink2)}
+.sec-t{font-size:14px;font-weight:700}
+.sec-a{margin-left:auto;font-size:12.5px;color:var(--syn);background:none;border:0;padding:6px 0 6px 10px;cursor:pointer;font-weight:500}
+.hint{font-size:12.5px;color:var(--ink2);margin:8px 0 0}
+
+input[type=text]{
+  width:100%;padding:14px;border:1px solid var(--rule);border-radius:8px;
+  background:var(--card);font:inherit;font-size:16px;color:var(--ink)
+}
+input[type=text]:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  border:1px solid var(--rule);background:var(--card);color:var(--ink2);border-radius:8px;
+  padding:9px 13px;font-size:14px;cursor:pointer;min-height:42px;display:inline-flex;align-items:baseline;gap:6px
+}
+.chip small{font-family:var(--mono);font-size:10.5px;opacity:.65}
+.chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+
+.modes{display:grid;gap:8px}
+.mode{
+  display:flex;flex-direction:column;gap:1px;text-align:left;width:100%;
+  border:1px solid var(--rule);background:var(--card);border-radius:10px;
+  padding:12px 15px;cursor:pointer;min-height:56px;color:var(--ink)
+}
+.mode b{font-size:15px;font-weight:700}
+.mode span{font-size:12.5px;color:var(--ink2)}
+.mode[aria-pressed=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+
+.cta{
+  width:100%;border:0;border-radius:10px;background:var(--ink);color:#fff;
+  font-size:16px;font-weight:700;padding:16px;cursor:pointer;min-height:54px
+}
+.cta:disabled{opacity:.35;cursor:not-allowed}
+.ghost{
+  width:100%;border:1px solid var(--ink);border-radius:10px;background:transparent;color:var(--ink);
+  font-size:15px;font-weight:500;padding:14px;cursor:pointer;min-height:50px
+}
+.ghost:disabled{opacity:.35;cursor:not-allowed}
+.linkbtn{border:0;background:none;color:var(--ink2);font-size:12.5px;text-decoration:underline;padding:10px 6px;cursor:pointer;min-height:40px}
+.stack{display:grid;gap:10px;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);text-align:center;margin:10px 0 0}
+.err{background:var(--no-t);color:var(--no);border-radius:8px;padding:12px 14px;font-size:14px;margin-bottom:20px}
+.warn{background:var(--ant-t);color:var(--ant);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:20px}
+
+/* ── 캐릭터 고르기 ── */
+.pet-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pet-card{
+  background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:10px 10px 14px;text-align:center;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink)
+}
+.pet-card b{font-size:16px}
+.pet-card span{font-size:12px;color:var(--ink2);line-height:1.35;word-break:keep-all}
+.pet-card[aria-pressed=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:#FFF8E1}
+.pet-art{width:96px;height:96px}
+svg{display:block;width:100%;height:100%}
+.stages{display:flex;gap:6px}
+.stages figure{margin:0;flex:1;text-align:center;background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:6px 2px}
+.stages figure div{width:100%;aspect-ratio:1}
+.stages figcaption{font-size:11px;line-height:1.3;word-break:keep-all;color:var(--ink2)}
+
+/* ── 내 캐릭터 ── */
+.pet-panel{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:14px}
+.home-pet{flex:0 0 118px;width:118px;height:118px}
+.pp-info{flex:1;min-width:0}
+.pp-name{font-size:21px;font-weight:700;margin:0;line-height:1.2}
+.pp-stage{font-size:12.5px;color:var(--ink2);margin:2px 0 10px}
+.xpbar{height:9px;background:var(--rule);border-radius:99px;overflow:hidden}
+.xpbar i{display:block;height:100%;width:0;background:var(--ink);border-radius:99px;transition:width .5s ease}
+.xptxt{font-family:var(--mono);font-size:11px;color:var(--ink2);margin:6px 0 0}
+.bubble{margin:10px 0 0;background:#FFF3C4;border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.45;word-break:keep-all}
+
+.mission{background:var(--ink);color:#fff;border-radius:16px;padding:18px;margin-top:14px}
+.mission h2{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+.mission h2 em{font-style:normal;font-size:11px;font-family:var(--mono);background:var(--hl);color:var(--ink);border-radius:99px;padding:2px 8px;font-weight:500}
+.mission p{margin:0 0 14px;font-size:14px;opacity:.85}
+.mission .cta{background:var(--hl);color:var(--ink)}
+
+.stat{margin-top:16px}
+.seg{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--rule)}
+.seg i{display:block;height:100%}
+.seg .s0{background:#CFC8B6}.seg .s1{background:#F2A65A}.seg .s2{background:#5DB35A}
+.stat-txt{font-family:var(--mono);font-size:11px;color:var(--ink2);margin:8px 0 0;display:flex;flex-wrap:wrap;gap:4px 12px}
+
+details.free{margin-top:22px;border:1px solid var(--rule);border-radius:12px;background:var(--card)}
+details.free>summary{padding:0 16px;min-height:52px;font-weight:700;font-size:14px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between}
+details.free>summary::-webkit-details-marker{display:none}
+details.free>summary::after{content:"+";font-size:20px;color:var(--ink2)}
+details.free[open]>summary::after{content:"–"}
+details.free .inner{padding:4px 16px 20px}
+.foot{display:flex;justify-content:center;gap:10px;margin-top:14px}
+.testbar{background:var(--no-t);color:var(--no);border:1px solid var(--no);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:16px}
+.testbox{margin-top:18px;border:2px dashed var(--no);border-radius:12px;padding:12px}
+.testbox p{margin:0;font-size:12.5px;color:var(--no);font-weight:700}
+.testbox .tstatus{margin-top:8px;font-weight:500;color:var(--ink);line-height:1.6}
+.legend-box{margin-top:14px;background:#FFF8E1;border:2px solid var(--hl);border-radius:16px;padding:16px}
+.legend-box h2{margin:0 0 4px;font-size:18px}
+.legend-box p{margin:0 0 12px;font-size:14px;word-break:keep-all}
+.legend-box label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.legend-box input{background:#fff}
+.legend-box .lg-h{margin:14px 0 6px;font-size:12.5px;font-weight:700;color:var(--ink2)}
+.lg-list{margin:0 0 14px;background:#fff;border:1px solid var(--rule);border-radius:10px;padding:8px 12px;font-size:13px}
+.lg-list div{display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed var(--rule)}
+.lg-list div:last-child{border-bottom:0}
+.lg-list dt{flex:0 0 5.5em;color:var(--ink2)}
+.lg-list dd{margin:0;flex:1;word-break:break-word}
+.legend-box .lg-note{margin:10px 0 0;font-size:12.5px;color:var(--ink2)}
+
+/* ── 공통 위쪽 바 ── */
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.back{border:0;background:none;color:var(--ink2);font-size:14px;padding:8px 8px 8px 0;cursor:pointer;min-height:40px}
+.track{flex:1;height:5px;background:var(--rule);border-radius:99px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--ink);transition:width .3s ease}
+.count{font-family:var(--mono);font-size:12px;color:var(--ink2);white-space:nowrap}
+.streak{font-family:var(--mono);font-size:12px;color:var(--ant);white-space:nowrap;min-width:3.4em;text-align:right}
+.mini{width:42px;height:42px;flex:0 0 42px}
+.mini.bump{animation:pop .5s ease}
+
+/* ── 문제 ── */
+.qcard{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:22px 18px 24px;text-align:center;margin-bottom:16px}
+.tags{display:flex;justify-content:center;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.qtag{font-size:12px;font-weight:700;padding:3px 9px;background:linear-gradient(transparent 45%,var(--hl) 45%)}
+.lv{font-family:var(--mono);font-size:11px;border:1px solid var(--rule);border-radius:99px;padding:2px 8px;color:var(--ink2);background:var(--card)}
+.q-word{font-family:var(--serif);font-weight:600;font-size:40px;line-height:1.1;letter-spacing:-.01em;word-break:break-word}
+.q-ko{font-size:25px;font-weight:700;line-height:1.35;word-break:keep-all}
+.ask{font-size:13.5px;color:var(--ink2);margin:12px 0 0}
+
+.opts{display:grid;gap:9px}
+.opt{
+  width:100%;text-align:left;border:1px solid var(--rule);background:var(--card);border-radius:10px;
+  padding:14px 16px;font-size:16px;cursor:pointer;min-height:54px;color:var(--ink)
+}
+.opt.en{font-family:var(--serif);font-size:19px}
+.opt:disabled{cursor:default}
+.opt.correct{background:var(--ok-t);border-color:var(--ok);color:var(--ok);font-weight:700}
+.opt.wrong{background:var(--no-t);border-color:var(--no);color:var(--no)}
+
+.spell{display:flex;gap:8px}
+.spell input{flex:1;font-family:var(--serif);font-size:22px;text-align:center}
+.spell button{flex:0 0 auto;padding:0 22px;border:0;border-radius:8px;background:var(--ink);color:#fff;font-weight:700;font-size:15px;cursor:pointer;min-height:52px}
+.spell button:disabled{opacity:.4}
+
+.verdict{margin:16px 0 0;font-size:15px;font-weight:700;text-align:center;min-height:1.5em}
+.verdict.ok{color:var(--ok)}
+.verdict.no{color:var(--no)}
+
+/* ── 단어 카드 (정답 확인 · 단어장 · 오답 복습 공용) ── */
+.reveal{background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:10px;padding:14px 16px;margin-top:14px;text-align:left}
+.rv-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rv-word{font-family:var(--serif);font-weight:600;font-size:24px;line-height:1.2;word-break:break-word}
+.st{font-size:11px;border-radius:99px;padding:2px 8px;margin-left:auto;font-weight:500}
+.st0{background:#EEE9DC;color:var(--ink2)}
+.st1{background:var(--ant-t);color:var(--ant)}
+.st2{background:var(--ok-t);color:var(--ok)}
+.rv-mean{margin:4px 0 10px;font-size:15px;font-weight:500}
+.rel{display:flex;gap:8px;align-items:baseline;margin-top:6px}
+.rel b{flex:0 0 auto;font-size:11px;font-family:var(--mono);padding:2px 7px;border-radius:5px;font-weight:500}
+.rel.syn b{background:var(--syn-t);color:var(--syn)}
+.rel.ant b{background:var(--ant-t);color:var(--ant)}
+.rel span{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--serif);font-size:16px}
+.rel i{font-style:normal}
+.rv-where{margin:12px 0 0;font-size:12.5px;color:var(--ink2)}
+.rv-where mark{background:linear-gradient(transparent 45%,var(--hl) 45%);color:var(--ink);font-weight:700;padding:0 3px}
+.rv-tap{display:none;margin:8px 0 0;font-size:12.5px;color:var(--ink2)}
+.reveal.covered:not(.open) .rv-mean,
+.reveal.covered:not(.open) .rel{display:none}
+.reveal.covered:not(.open) .rv-tap{display:block}
+.reveal.covered{cursor:pointer}
+
+/* ── 단어장 ── */
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.sw h2{margin:0;font-size:20px}
+.toggle{border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:99px;padding:8px 14px;font-size:13px;cursor:pointer;min-height:38px;font-weight:500}
+.toggle[aria-pressed=true]{background:var(--ink);color:#fff}
+.grp{position:sticky;top:0;z-index:2;margin:22px -18px 0;padding:10px 18px;background:var(--paper);border-bottom:1px solid var(--rule);font-size:14px;font-weight:700}
+.grp small{font-family:var(--mono);font-weight:500;color:var(--ink2);margin-left:6px}
+
+/* ── 결과 ── */
+.res-pet{width:150px;height:150px;margin:4px auto 0}
+.res-msg{text-align:center;font-weight:700;margin:6px 0 0;word-break:keep-all}
+.res-msg.up{display:table;margin:6px auto 0;padding:0 8px;background:linear-gradient(transparent 55%,var(--hl) 55%)}
+.score{text-align:center;margin:12px 0 22px}
+.score b{display:block;font-family:var(--serif);font-weight:600;font-size:64px;line-height:1}
+.score small{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+.xpline{text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--ink2);margin:8px 0 0}
+.legend{font-size:14px;font-weight:700;margin:0 0 -4px}
+
+/* ── 움직임 ── */
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}100%{transform:scale(1)}}
+@keyframes wob{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.home-pet svg,.res-pet svg{animation:bob 2.8s ease-in-out infinite}
+.egg{transform-box:fill-box;transform-origin:50% 100%;animation:wob 2.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ══ 홈 ══ -->
+<section id="home">
+  <div class="testbar" id="testBar" hidden>교사용 테스트 모드예요. 이 파일은 학생에게 배포하지 마세요.</div>
+  <p class="eyebrow" id="eyebrow"></p>
+  <h1>시험 <em>어휘</em> 연습</h1>
+  <p class="tagline">언제라도 다시 나올 수 있는 어휘를 지금 익혀볼까요?</p>
+  <p class="sub">시험지 선택지에 나온 어려운 어휘를 뜻 · 철자 · 유의어 · 반의어로 연습하며 나만의 친구를 키워요.</p>
+
+  <div id="loadErr" class="err" hidden></div>
+  <div id="saveWarn" class="warn" hidden>이 브라우저에서는 기록을 저장할 수 없어요. 사생활 보호(시크릿) 모드라면 일반 창으로 열어 주세요. 지금은 이 화면을 닫기 전까지만 기록돼요.</div>
+
+  <!-- 처음 접속: 캐릭터 고르기 -->
+  <div id="pickBox" hidden>
+    <div class="sec">
+      <div class="sec-h"><span class="sec-n">START</span><span class="sec-t">함께할 친구를 골라 주세요</span></div>
+      <div class="pet-grid" id="petGrid"></div>
+      <div id="petPreview" hidden style="margin-top:16px"></div>
+      <p class="hint">알에서 시작해서 문제를 풀수록 자라요. 이름도, 개인정보도 필요 없어요.</p>
+    </div>
+    <button class="cta" id="pickBtn" type="button" disabled>친구를 골라 주세요</button>
+  </div>
+
+  <!-- 캐릭터가 있을 때 -->
+  <div id="gameBox" hidden>
+    <div class="pet-panel">
+      <div class="home-pet" id="homePet"></div>
+      <div class="pp-info">
+        <p class="pp-name" id="petName"></p>
+        <p class="pp-stage" id="petStage"></p>
+        <div class="xpbar"><i id="xpFill"></i></div>
+        <p class="xptxt" id="xpTxt"></p>
+      </div>
+    </div>
+    <p class="bubble" id="bubble"></p>
+
+    <div class="legend-box" id="legendBox" hidden>
+      <h2>전설 달성!</h2>
+      <p>정말 대단해요. 원하면 선생님께 알려서 칭찬과 피드백을 받을 수 있어요. 알릴지 말지는 내가 정해요.</p>
+      <label for="legendWho">이름</label>
+      <input type="text" id="legendWho" autocomplete="off" placeholder="이름을 적어 주세요">
+      <p class="lg-h">선생님께 보내지는 내용 (이게 전부예요)</p>
+      <dl class="lg-list" id="legendList"></dl>
+      <button class="cta" id="legendBtn" type="button" disabled>선생님께 알리기 (제출 화면 열기)</button>
+      <p class="lg-note">누르면 내용이 채워진 제출 화면이 열려요. <b>거기서 [제출]을 누르기 전에는 아무것도 전송되지 않아요.</b></p>
+    </div>
+
+    <div class="mission">
+      <h2><span>오늘의 연습</span><em id="mBadge" hidden>완료</em></h2>
+      <p id="mDesc"></p>
+      <button class="cta" id="missionBtn" type="button">오늘의 연습 시작</button>
+    </div>
+
+    <div class="stat">
+      <div class="seg" id="seg"></div>
+      <div class="stat-txt" id="segTxt"></div>
+    </div>
+
+    <div class="stack"><button class="ghost" id="studyBtn" type="button">단어장 열기</button></div>
+
+    <details class="free" id="free">
+      <summary>자유 연습 · 범위와 방식 고르기</summary>
+      <div class="inner">
+        <div class="sec" style="margin-top:12px">
+          <div class="sec-h" style="margin-bottom:8px">
+            <span class="hint" style="margin:0">시험지 문항 번호</span>
+            <button class="sec-a" id="allNums" type="button">전체 선택</button>
+          </div>
+          <div class="chips" id="nums"></div>
+          <div class="hint" style="margin-top:16px">난이도 (CEFR)</div>
+          <div class="chips" id="levels" style="margin-top:8px"></div>
+          <p class="hint" id="poolNote"></p>
+        </div>
+        <div class="sec" style="margin-bottom:18px">
+          <div class="modes" id="modes"></div>
+          <div class="hint" style="margin-top:16px">문제 수</div>
+          <div class="chips" id="counts" style="margin-top:8px"></div>
+        </div>
+        <button class="cta" id="startBtn" type="button">자유 연습 시작</button>
+      </div>
+    </details>
+
+    <div class="foot">
+      <button class="linkbtn" id="changePet" type="button">캐릭터 바꾸기</button>
+      <button class="linkbtn" id="resetAll" type="button">기록 모두 지우기</button>
+    </div>
+    <p class="note">기록은 이 폰의 브라우저에만 저장돼요. 내가 직접 제출하지 않으면 선생님께 전송되지 않아요.</p>
+
+    <div class="testbox" id="testBox" hidden>
+      <p>교사용 테스트 (TEST_MODE)</p>
+      <p class="tstatus" id="testStatus"></p>
+      <div class="stack" style="margin-top:8px">
+        <button class="ghost" id="testLegend" type="button">전설 상태로 만들기</button>
+        <button class="ghost" id="testNextDay" type="button">하루 뒤로 넘기기 (복습 확인)</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 단어장 ══ -->
+<section id="study" hidden>
+  <div class="bar"><button class="back" id="studyBack" type="button">← 돌아가기</button></div>
+  <div class="sw">
+    <h2>단어장 <span class="count" id="studyCount"></span></h2>
+    <button class="toggle" id="coverBtn" type="button" aria-pressed="false">뜻 가리기</button>
+  </div>
+  <div id="studyList"></div>
+  <div class="stack"><button class="cta" id="studyGo" type="button">오늘의 연습 시작하기</button></div>
+</section>
+
+<!-- ══ 문제 ══ -->
+<section id="quiz" hidden>
+  <div class="bar">
+    <button class="back" id="quitBtn" type="button">그만</button>
+    <div class="mini" id="miniPet"></div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <span class="count" id="count"></span>
+    <span class="streak" id="streak"></span>
+  </div>
+
+  <div class="qcard">
+    <div class="tags"><span class="qtag" id="qNum"></span><span class="lv" id="qLv"></span></div>
+    <div id="qPrompt"></div>
+    <p class="ask" id="qAsk"></p>
+  </div>
+
+  <div class="opts" id="opts"></div>
+  <div class="spell" id="spell" hidden>
+    <input type="text" id="spellInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 입력">
+    <button id="spellBtn" type="button">확인</button>
+  </div>
+
+  <p class="verdict" id="verdict"></p>
+  <div id="feedback"></div>
+  <div class="stack" id="nextWrap" hidden><button class="cta" id="nextBtn" type="button">다음 문제</button></div>
+</section>
+
+<!-- ══ 결과 ══ -->
+<section id="result" hidden>
+  <p class="eyebrow">RESULT</p>
+  <div class="res-pet" id="resPet"></div>
+  <div class="res-msg" id="resMsg"></div>
+  <div class="score"><b id="rScore">0</b><small id="rLine"></small></div>
+  <p class="xpline" id="xpLine"></p>
+  <p class="note" id="legendNote" hidden></p>
+  <div id="rReview" style="margin-top:18px"></div>
+  <div class="stack">
+    <button class="cta" id="againBtn" type="button">홈으로 돌아가기</button>
+    <button class="ghost" id="retryBtn" type="button" hidden>틀린 어휘만 다시 풀기</button>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ═══════════════ 캐릭터 (모두 이 사이트만의 오리지널) ═══════════════ */
+const STAGE_NAMES = ["알", "어휘 새싹", "어휘 수집가", "어휘 고수", "어휘 전설"];
+const INK = "#1B2A41";
+
+const PETS = [
+  { id:"boli", name:"보리", trait:"호기심 많고 장난기 가득한 친구",
+    c:"#F2A65A", d:"#D98638", belly:"#FCE6CC",
+    back:p => '<polygon points="31,58 33,28 54,46" fill="'+p.c+'"/><polygon points="89,58 87,28 66,46" fill="'+p.c+'"/><polygon points="36,50 38,36 47,46" fill="#F7B7B0"/><polygon points="84,50 82,36 73,46" fill="#F7B7B0"/>',
+    mid:p => '<path d="M54 45v6M60 43v7M66 45v6" stroke="'+p.d+'" stroke-width="2.4" stroke-linecap="round" fill="none"/>',
+    front:() => '<path d="M57.5 73.5h5l-2.5 3z" fill="#E0627A"/><path d="M29 73l10 2M29 80l10-1M91 73l-10 2M91 80l-10-1" stroke="'+INK+'" stroke-width="1.3" stroke-linecap="round" fill="none"/>' },
+
+  { id:"kongi", name:"콩이", trait:"조용하지만 끈기 있는 친구",
+    c:"#B9A4E8", d:"#8F78CC", belly:"#EFE8FB",
+    back:p => '<ellipse cx="45" cy="30" rx="8.5" ry="21" fill="'+p.c+'" transform="rotate(-10 45 30)"/><ellipse cx="75" cy="30" rx="8.5" ry="21" fill="'+p.c+'" transform="rotate(10 75 30)"/><ellipse cx="45" cy="31" rx="4" ry="14" fill="#F6C9DC" transform="rotate(-10 45 31)"/><ellipse cx="75" cy="31" rx="4" ry="14" fill="#F6C9DC" transform="rotate(10 75 31)"/>',
+    front:() => '<ellipse cx="60" cy="74" rx="2.8" ry="2.2" fill="#E0627A"/>' },
+
+  { id:"mozzi", name:"모찌", trait:"느긋하고 든든한 푸근한 친구", my:2,
+    c:"#D9A777", d:"#B98350", belly:"#F6E3CF",
+    back:p => '<circle cx="36" cy="48" r="11" fill="'+p.c+'"/><circle cx="84" cy="48" r="11" fill="'+p.c+'"/><circle cx="36" cy="48" r="5.5" fill="'+p.belly+'"/><circle cx="84" cy="48" r="5.5" fill="'+p.belly+'"/>',
+    mid:p => '<ellipse cx="60" cy="77" rx="12" ry="9" fill="'+p.belly+'"/>',
+    front:() => '<ellipse cx="60" cy="73.5" rx="3.6" ry="2.6" fill="#4A3426"/>' },
+
+  { id:"hwiri", name:"휘리", trait:"자유롭고 높이 나는 것을 좋아하는 친구", noMouth:true,
+    c:"#7CC4F2", d:"#4FA3D9", belly:"#E3F3FD",
+    back:p => '<path d="M52 46 Q50 28 58 26 Q56 36 60 44 Q62 32 70 30 Q66 38 68 46 Z" fill="'+p.d+'"/><ellipse cx="27" cy="78" rx="8" ry="14" fill="'+p.d+'" transform="rotate(12 27 78)"/><ellipse cx="93" cy="78" rx="8" ry="14" fill="'+p.d+'" transform="rotate(-12 93 78)"/>',
+    front:() => '<path d="M54 73 Q60 71 66 73 Q64 81 60 83 Q56 81 54 73 Z" fill="#F2A33A"/>' },
+
+  { id:"gaegu", name:"개구", trait:"씩씩하고 통통 튀는 친구", ownEyes:true, wide:true, hatDy:-9, capDy:-20,
+    c:"#8FD18A", d:"#5DB35A", belly:"#E6F6DF",
+    mid:(p, m) => '<circle cx="44" cy="46" r="12.5" fill="'+p.c+'"/><circle cx="76" cy="46" r="12.5" fill="'+p.c+'"/>' + (m === "cheer"
+      ? '<path d="M38 47 Q44 39 50 47M70 47 Q76 39 82 47" stroke="'+INK+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+      : '<circle cx="44" cy="46" r="8" fill="#fff"/><circle cx="76" cy="46" r="8" fill="#fff"/><circle cx="45" cy="47" r="4.4" fill="'+INK+'"/><circle cx="75" cy="47" r="4.4" fill="'+INK+'"/><circle cx="46.4" cy="45.4" r="1.4" fill="#fff"/><circle cx="76.4" cy="45.4" r="1.4" fill="#fff"/>') },
+
+  { id:"mongsil", name:"몽실", trait:"말랑말랑 호기심 덩어리 친구", noBelly:true,
+    c:"#8EE0C8", d:"#5CC4A6",
+    bodyPath:"M26 80 Q26 42 60 42 Q94 42 94 80 Q94 98 84 100 Q78 104 72 100 Q66 106 60 100 Q54 106 48 100 Q42 104 36 100 Q26 98 26 80 Z",
+    mid:(p, m, st) => (st >= 3 ? '' : '<path d="M60 44 Q58 34 66 28" stroke="'+p.d+'" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="67" cy="27" r="4.5" fill="#F5C542"/>') + '<ellipse cx="42" cy="58" rx="7" ry="3.6" fill="#fff" opacity=".55" transform="rotate(-25 42 58)"/>' }
+];
+
+function star(x, y, s){ return '<path d="M'+x+' '+(y-s)+' Q'+x+' '+y+' '+(x+s)+' '+y+' Q'+x+' '+y+' '+x+' '+(y+s)+' Q'+x+' '+y+' '+(x-s)+' '+y+' Q'+x+' '+y+' '+x+' '+(y-s)+' Z" fill="#F5C542"/>'; }
+
+function eggSVG(p){
+  return '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+p.name+'의 알">'+
+    '<ellipse cx="60" cy="108" rx="26" ry="4" fill="'+INK+'" opacity=".1"/>'+
+    '<g class="egg"><ellipse cx="60" cy="68" rx="29" ry="37" fill="#FFFDF8" stroke="'+p.d+'" stroke-width="2.5"/>'+
+    '<circle cx="48" cy="52" r="6.5" fill="'+p.c+'"/><circle cx="71" cy="58" r="5" fill="'+p.c+'"/>'+
+    '<circle cx="56" cy="80" r="8" fill="'+p.c+'"/><circle cx="76" cy="86" r="5" fill="'+p.c+'"/>'+
+    '<path d="M44 42 Q48 34 56 33" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".9"/></g></svg>';
+}
+
+/* stage 0 = 알, 1 = 어휘 새싹, 2 = 어휘 수집가, 3 = 어휘 고수, 4 = 어휘 전설 · mood = smile | cheer | sad */
+function petSVG(id, stage, mood){
+  mood = mood || "smile";
+  const p = PETS.find(x => x.id === id) || PETS[0];
+  if (stage === 0) return eggSVG(p);
+  const sc = [0, .72, .86, .98, 1.06][stage];
+  const body = p.bodyPath ? '<path d="'+p.bodyPath+'" fill="'+p.c+'"/>' : '<ellipse cx="60" cy="72" rx="34" ry="30" fill="'+p.c+'"/>';
+  const belly = p.noBelly ? "" : '<ellipse cx="60" cy="84" rx="20" ry="14" fill="'+p.belly+'"/>';
+  let eyes = "";
+  if (!p.ownEyes){
+    eyes = mood === "cheer"
+      ? '<path d="M42 70 Q48 62 54 70M66 70 Q72 62 78 70" stroke="'+INK+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+      : '<circle cx="48" cy="68" r="4.4" fill="'+INK+'"/><circle cx="72" cy="68" r="4.4" fill="'+INK+'"/><circle cx="49.5" cy="66.5" r="1.5" fill="#fff"/><circle cx="73.5" cy="66.5" r="1.5" fill="#fff"/>';
+  }
+  const cheeks = '<circle cx="39" cy="77" r="5" fill="#FF9EB0" opacity=".5"/><circle cx="81" cy="77" r="5" fill="#FF9EB0" opacity=".5"/>';
+  let mouth = "";
+  if (!p.noMouth){
+    const W = p.wide;
+    const line = d => '<path d="'+d+'" stroke="'+INK+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+    mouth = mood === "cheer" ? (W ? '<path d="M46 78 Q60 96 74 78 Z" fill="#7A2E3B"/>' : '<path d="M53 76 Q60 90 67 76 Z" fill="#7A2E3B"/>')
+          : mood === "sad"   ? (W ? line("M48 86 Q60 78 72 86") : line("M54 82 Q60 76 66 82"))
+          :                    (W ? line("M46 79 Q60 91 74 79") : line("M54 77 Q60 83 66 77"));
+    mouth = '<g transform="translate(0 '+(p.my || 0)+')">'+mouth+'</g>';
+  }
+  const scarf = stage >= 2 ? '<path d="M38 93 Q60 104 82 93 L84 100 Q60 112 36 100 Z" fill="#E4572E"/><path d="M74 101 L79 115 L88 112 L82 99 Z" fill="#C8431F"/>' : "";
+  const cap = stage === 3 ? '<polygon points="34,42 60,31 86,42 60,53" fill="'+INK+'"/><path d="M46 49 v8 Q60 63 74 57 v-8 Q60 56 46 49Z" fill="#2B3F63"/><path d="M86 42 L88 56" stroke="#F5C542" stroke-width="2"/><circle cx="88" cy="58" r="2.6" fill="#F5C542"/>' : "";
+  const crown = stage === 4 ? '<polygon points="42,44 45,27 53,37 60,24 67,37 75,27 78,44" fill="#F5C542" stroke="#C99A1B" stroke-width="1.5" stroke-linejoin="round"/><circle cx="60" cy="25" r="2.4" fill="#E4572E"/>' : "";
+  const cape = stage === 4 ? '<path d="M32 70 Q20 100 30 114 L90 114 Q100 100 88 70 Z" fill="#B33A3A"/>' : "";
+  const sparkles = stage === 4 ? star(14, 32, 7) + star(107, 40, 6) + star(104, 98, 5) : "";
+  return '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+p.name+'">'+
+    '<ellipse cx="60" cy="108" rx="28" ry="4" fill="'+INK+'" opacity=".1"/>'+
+    '<g transform="translate(60 106) scale('+sc+') translate(-60 -106)">'+
+    cape + (p.back ? p.back(p) : "") + body + belly + (p.mid ? p.mid(p, mood, stage) : "") + eyes + cheeks + mouth + (p.front ? p.front(p) : "") + scarf + '<g transform="translate(0 '+(p.capDy || 0)+')">' + cap + '</g><g transform="translate(0 '+(p.hatDy || 0)+')">' + crown + '</g>' +
+    '</g>'+ sparkles + '</svg>';
+}
+
+/* ═══════════════ 상태 · 저장 ═══════════════ */
+const STORE_KEY = "examPracticeGame.v1";
+let G = { pet:null, xp:0, words:{}, streak:{ last:-1, count:0 }, missionDay:-1, legendDate:null, activeDays:0 };
+let canSave = true;
+let DATA = [];
+let selNums = new Set(), selLevels = new Set(), mode = "mix", qCount = 10, pickId = null;
+let queue = [], idx = 0, answered = false;
+let firstTotal = 0, firstCorrect = 0, streak = 0, best = 0, wrong = [], lastWrong = [];
+let xpGain = 0, stageBefore = 0, isMission = false, covered = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s).trim().toLowerCase().replace(/\s+/g, " ");
+const pickOne = a => a[(Math.random() * a.length) | 0];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const natural = (a, b) => ((parseInt(a, 10) || 1e9) - (parseInt(b, 10) || 1e9)) || a.localeCompare(b, "ko");
+const isPhrase = w => /\s/.test(w);
+const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
+
+function loadG(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw){ const o = JSON.parse(raw); if (o && typeof o === "object") G = Object.assign(G, o); }
+  }catch(e){ canSave = false; }
+  if (!G.words || typeof G.words !== "object") G.words = {};
+  if (!G.streak) G.streak = { last:-1, count:0 };
+  if (!PETS.some(p => p.id === G.pet)) G.pet = null;
+}
+function saveG(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(G)); canSave = true; }
+  catch(e){ canSave = false; }
+  $("saveWarn").hidden = canSave;
+}
+const ws = v => G.words[norm(v.word)] || { b:0, due:0, n:0 };
+const masteredCount = () => DATA.filter(v => ws(v).b === 4).length;
+const legendNeed = () => Math.max(1, CONFIG.LEGEND_MASTER_COUNT > 0 ? Math.min(DATA.length, CONFIG.LEGEND_MASTER_COUNT) : Math.ceil(DATA.length * CONFIG.LEGEND_MASTER_RATIO));
+const MAXS = () => CONFIG.STAGE_XP.length - 1;
+/* 마지막(전설) 단계는 XP에 더해 마스터 어휘 수 조건까지 채워야 한다 */
+const stageOf = xp => {
+  let s = 0; CONFIG.STAGE_XP.forEach((m, i) => { if (xp >= m) s = i; });
+  if (s === MAXS() && masteredCount() < legendNeed()) s--;
+  return s;
+};
+const dateStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+
+/* ═══════════════ 데이터 읽기 (구글 시트 CSV / 내장 CSV 공용) ═══════════════ */
+function parseCSV(t){
+  t = t.replace(/^﻿/, "");
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < t.length; i++){
+    const c = t[i];
+    if (q){ if (c === '"'){ if (t[i+1] === '"'){ cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ","){ row.push(cell); cell = ""; }
+    else if (c === "\n"){ row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (c !== "\r") cell += c;
+  }
+  if (cell !== "" || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ""));
+}
+function toItems(rows){
+  const head = rows[0].map(norm);
+  const col = (...names) => { for (const n of names){ const i = head.indexOf(n); if (i > -1) return i; } return -1; };
+  const C = {
+    passage: col("passage","문항","지문"), word: col("word","단어","어휘"),
+    meaning: col("meaning","뜻","의미"),   cefr: col("cefr","등급","level"),
+    syn: col("synonyms","유의어"),         ant: col("antonyms","반의어"),
+    s: [col("syn1","유의어1"), col("syn2","유의어2"), col("syn3","유의어3")],
+    a: [col("ant1","반의어1"), col("ant2","반의어2"), col("ant3","반의어3")],
+    also: col("also","다른출제")
+  };
+  if (C.word < 0) throw new Error("시트 첫 줄에 'word' 열이 없습니다.");
+  const get = (r, i) => i > -1 ? (r[i] || "").trim() : "";
+  const list = (r, joined, parts) => {
+    const j = get(r, joined);
+    if (j) return j.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    return parts.map(i => get(r, i)).filter(Boolean);
+  };
+  return rows.slice(1).map(r => ({
+    passage: get(r, C.passage) || "전체",
+    word:    get(r, C.word),
+    meaning: get(r, C.meaning),
+    cefr:    (get(r, C.cefr) || "—").toUpperCase(),
+    syn:     list(r, C.syn, C.s),
+    ant:     list(r, C.ant, C.a),
+    also:    get(r, C.also)
+  })).filter(v => v.word);
+}
+async function boot(){
+  $("eyebrow").textContent = CONFIG.EXAM_TITLE + " · " + CONFIG.SUBJECT;
+  loadG();
+  DATA = toItems(parseCSV(FALLBACK_CSV));
+  if (CONFIG.SHEET_CSV_URL){
+    try{
+      const res = await fetch(CONFIG.SHEET_CSV_URL, { cache:"no-store" });
+      if (!res.ok) throw new Error("시트를 불러오지 못했어요 (" + res.status + ")");
+      const items = toItems(parseCSV(await res.text()));
+      if (!items.length) throw new Error("시트에 어휘가 없어요.");
+      DATA = items;
+    }catch(e){
+      $("loadErr").hidden = false;
+      $("loadErr").textContent = "시트 대신 저장된 어휘로 진행해요. " + e.message;
+    }
+  }
+  buildFree();
+  show("home");
+}
+
+function show(id){
+  ["home","study","quiz","result"].forEach(s => $(s).hidden = s !== id);
+  if (id === "home") renderHome();
+  window.scrollTo(0, 0);
+}
+
+/* ═══════════════ 홈 ═══════════════ */
+function renderHome(){
+  const has = !!G.pet;
+  $("pickBox").hidden = has; $("gameBox").hidden = !has;
+  $("saveWarn").hidden = canSave;
+  $("testBar").hidden = !CONFIG.TEST_MODE;
+  $("testBox").hidden = !(CONFIG.TEST_MODE && has);
+  has ? renderGame() : renderPick();
+  renderTestStatus();
+}
+
+function renderPick(){
+  const host = $("petGrid"); host.innerHTML = "";
+  PETS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pet-card";
+    b.setAttribute("aria-pressed", p.id === pickId);
+    b.innerHTML = '<div class="pet-art">' + petSVG(p.id, 1, "smile") + '</div><b>' + esc(p.name) + '</b><span>' + esc(p.trait) + '</span>';
+    b.onclick = () => { pickId = p.id; renderPick(); };
+    host.appendChild(b);
+  });
+  const prev = $("petPreview"), sel = PETS.find(p => p.id === pickId);
+  if (sel){
+    prev.hidden = false;
+    prev.innerHTML = '<p class="hint" style="margin:0 0 8px">' + esc(sel.name) + '의 성장 과정</p><div class="stages">' +
+      [0,1,2,3,4].map(s => '<figure><div>' + petSVG(sel.id, s, "smile") + '</div><figcaption>' + STAGE_NAMES[s] + '</figcaption></figure>').join("") + '</div>';
+  }else prev.hidden = true;
+  $("pickBtn").disabled = !sel;
+  $("pickBtn").textContent = sel ? "이 친구와 시작하기" : "친구를 골라 주세요";
+}
+$("pickBtn").onclick = () => {
+  if (!pickId) return;
+  G.pet = pickId; G.xp = 0; saveG(); renderHome();
+};
+
+function missionPlan(){
+  const t = today(), size = CONFIG.MISSION_SIZE;
+  const due = DATA.filter(v => { const s = ws(v); return s.b >= 1 && s.due <= t; })
+                  .sort((a, b) => ws(a).due - ws(b).due || ws(a).b - ws(b).b);
+  const fresh = DATA.filter(v => ws(v).b === 0);
+  const dueTake = due.slice(0, size);
+  const newTake = fresh.slice(0, Math.max(0, size - dueTake.length));
+  return { dueAll: due.length, dueN: dueTake.length, newN: newTake.length, items: [...dueTake, ...newTake] };
+}
+
+function renderGame(){
+  const p = PETS.find(x => x.id === G.pet), stage = stageOf(G.xp), X = CONFIG.STAGE_XP;
+  $("homePet").innerHTML = petSVG(G.pet, stage, "smile");
+  $("petName").textContent = p.name;
+  $("petStage").textContent = STAGE_NAMES[stage] + " 단계";
+  const mc = masteredCount(), need = legendNeed(), maxS = MAXS();
+  if (stage < maxS){
+    if (stage + 1 === maxS && G.xp >= X[maxS]){
+      $("xpFill").style.width = "100%";
+      $("xpTxt").textContent = "전설까지 마스터 어휘 " + (need - mc) + "개 남았어요 (" + mc + "/" + need + ")";
+    }else{
+      const lo = X[stage], hi = X[stage + 1];
+      $("xpFill").style.width = Math.min(100, (G.xp - lo) / (hi - lo) * 100) + "%";
+      $("xpTxt").textContent = "다음 단계까지 " + (hi - G.xp) + " XP" + (stage + 1 === maxS ? " · 마스터 어휘 " + mc + "/" + need : "");
+    }
+  }else{
+    $("xpFill").style.width = "100%";
+    $("xpTxt").textContent = "최고 단계예요! 총 " + G.xp + " XP";
+  }
+
+  const m = missionPlan(), done = G.missionDay === today();
+  $("mBadge").hidden = !done;
+  if (m.items.length){
+    $("mDesc").textContent = "복습 " + m.dueN + "개 · 새 단어 " + m.newN + "개 (총 " + m.items.length + "개)" + (done ? "" : " · 끝내면 +" + CONFIG.MISSION_BONUS_XP + " XP");
+    $("missionBtn").disabled = false;
+    $("missionBtn").textContent = done ? "한 번 더 하기" : "오늘의 연습 시작";
+  }else{
+    $("mDesc").textContent = "오늘 할 복습이 없어요. 자유 연습으로 더 해 볼 수 있어요.";
+    $("missionBtn").disabled = true; $("missionBtn").textContent = "내일 다시 만나요";
+  }
+
+  const newLeft = DATA.filter(v => ws(v).b === 0).length;
+  $("bubble").textContent = p.name + ": " + (
+    stage === 0 ? "따뜻한 기운이 느껴져… 문제를 풀어서 나를 부화시켜 줘!" :
+    (stage + 1 === MAXS() && G.xp >= X[MAXS()]) ? "전설이 되려면 마스터 어휘가 " + (need - mc) + "개 더 필요해. 복습을 꾸준히 해 보자!" :
+    m.dueAll > 0 ? "복습할 어휘 " + m.dueAll + "개가 기다리고 있어. 같이 해 볼까?" :
+    done ? "오늘도 고마워! 더 하고 싶으면 한 번 더 해 보자." :
+    newLeft > 0 ? "새 단어를 만나러 가 볼까?" : "오늘은 복습할 게 없어. 내일 또 만나자!");
+
+  let n0 = 0, n1 = 0, n2 = 0;
+  DATA.forEach(v => { const b = ws(v).b; b === 0 ? n0++ : b === 4 ? n2++ : n1++; });
+  $("seg").innerHTML = '<i class="s2" style="flex:' + n2 + '"></i><i class="s1" style="flex:' + n1 + '"></i><i class="s0" style="flex:' + n0 + '"></i>';
+  const sk = G.streak.last >= today() - 1 ? G.streak.count : 0;
+  renderLegend();
+  $("segTxt").innerHTML = '<span>마스터 ' + n2 + '</span><span>익히는 중 ' + n1 + '</span><span>새 단어 ' + n0 + '</span><span>연속 ' + sk + '일</span>';
+}
+/* ── 전설 달성 알림 (학생이 직접 제출해야만 전달됨) ── */
+function formReady(){
+  const F = CONFIG.FORM_FIELDS || {};
+  return !!(CONFIG.FORM_URL && F.who && F.pet && F.date && F.mastered && F.days && F.weak);
+}
+function legendPayload(){
+  const p = PETS.find(x => x.id === G.pet) || PETS[0];
+  const weak = Object.entries(G.words).filter(([k, s]) => s.w > 0).sort((a, b) => b[1].w - a[1].w)
+    .map(([k]) => DATA.find(v => norm(v.word) === k)).filter(Boolean).slice(0, 5);
+  return {
+    pet: p.name,
+    date: G.legendDate || dateStr(),
+    mastered: masteredCount() + " / " + DATA.length + "개",
+    days: (G.activeDays || 0) + "일",
+    weak: weak.length ? weak.map(v => v.word + "(" + v.passage + ")").join(", ") : "없음"
+  };
+}
+function renderLegend(){
+  const on = G.pet && stageOf(G.xp) === MAXS() && formReady();
+  $("legendBox").hidden = !on;
+  if (!on) return;
+  const P = legendPayload(), who = $("legendWho").value.trim();
+  const manual = (CONFIG.FORM_MANUAL_ITEMS || []).map(x => [x, "제출 화면에서 직접 입력"]);
+  const rows = [["이름", who || "(입력해 주세요)"], ...manual, ["캐릭터", P.pet], ["전설 달성일", P.date], ["마스터 어휘", P.mastered], ["연습한 날", P.days], ["자주 틀린 어휘", P.weak]];
+  $("legendList").innerHTML = rows.map(r => "<div><dt>" + r[0] + "</dt><dd>" + esc(r[1]) + "</dd></div>").join("");
+  $("legendBtn").disabled = !who;
+}
+$("legendWho").addEventListener("input", renderLegend);
+$("legendBtn").onclick = () => {
+  const who = $("legendWho").value.trim();
+  if (!who || !formReady()) return;
+  const P = legendPayload(), F = CONFIG.FORM_FIELDS, enc = encodeURIComponent;
+  const url = CONFIG.FORM_URL.replace(/\?.*$/, "") + "?usp=pp_url" +
+    "&" + F.who + "=" + enc(who) + "&" + F.pet + "=" + enc(P.pet) + "&" + F.date + "=" + enc(P.date) +
+    "&" + F.mastered + "=" + enc(P.mastered) + "&" + F.days + "=" + enc(P.days) + "&" + F.weak + "=" + enc(P.weak);
+  window.open(url, "_blank", "noopener");     // 폼을 열기만 한다. 학생이 폼에서 [제출]을 눌러야 전달된다.
+};
+
+/* ── 교사용 테스트 버튼 (TEST_MODE 가 true 일 때만 보이고 동작) ── */
+function renderTestStatus(){
+  if (!CONFIG.TEST_MODE || !G.pet) return;
+  const why = [], F = CONFIG.FORM_FIELDS || {};
+  if (stageOf(G.xp) !== MAXS()) why.push("아직 전설이 아니에요 (XP " + G.xp + "/" + CONFIG.STAGE_XP[MAXS()] + ", 마스터 어휘 " + masteredCount() + "/" + legendNeed() + ") → [전설 상태로 만들기]를 눌러 주세요");
+  if (!CONFIG.FORM_URL) why.push("FORM_URL 이 비어 있어요");
+  ["who","pet","date","mastered","days","weak"].forEach(k => { if (!F[k]) why.push("FORM_FIELDS." + k + " 이(가) 비어 있어요"); });
+  $("testStatus").innerHTML = why.length
+    ? "알리기 상자가 숨겨진 이유:<br>• " + why.map(esc).join("<br>• ")
+    : "알리기 상자 조건을 모두 충족했어요. 위쪽 캐릭터 아래에 상자가 보여야 해요.";
+}
+$("testLegend").onclick = () => {
+  if (!CONFIG.TEST_MODE || !G.pet) return;
+  G.xp = Math.max(G.xp, CONFIG.STAGE_XP[MAXS()]);
+  DATA.slice(0, legendNeed()).forEach((v, i) => { G.words[norm(v.word)] = { b:4, due:today() + 14, n:5, w:i < 3 ? 3 - i : 0 }; });
+  G.legendDate = G.legendDate || dateStr();
+  G.activeDays = Math.max(G.activeDays || 0, 12);
+  saveG(); renderHome();
+};
+$("testNextDay").onclick = () => {
+  if (!CONFIG.TEST_MODE) return;
+  Object.values(G.words).forEach(s => { s.due = (s.due || 0) - 1; });
+  G.missionDay = (G.missionDay == null ? -1 : G.missionDay) - 1;
+  G.streak.last = (G.streak.last == null ? -1 : G.streak.last) - 1;
+  saveG(); renderHome();
+};
+
+$("missionBtn").onclick = () => startMission();
+$("changePet").onclick = () => {
+  if (!confirm("캐릭터를 바꾸면 성장 기록(XP)이 처음부터 다시 시작돼요.\n어휘 복습 기록은 그대로 남아요. 바꿀까요?")) return;
+  G.pet = null; G.xp = 0; G.legendDate = null; $("legendWho").value = ""; pickId = null; saveG(); renderHome();
+};
+$("resetAll").onclick = () => {
+  if (!confirm("캐릭터와 복습 기록을 모두 지울까요? 되돌릴 수 없어요.")) return;
+  G = { pet:null, xp:0, words:{}, streak:{ last:-1, count:0 }, missionDay:-1, legendDate:null, activeDays:0 }; $("legendWho").value = ""; pickId = null; saveG(); renderHome();
+};
+
+/* ── 자유 연습 설정 ── */
+function renderChips(host, items, set, countFn){
+  host.innerHTML = "";
+  items.forEach(v => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip";
+    b.setAttribute("aria-pressed", set.has(v));
+    b.innerHTML = esc(v) + (countFn ? "<small>" + countFn(v) + "</small>" : "");
+    b.onclick = () => { set.has(v) ? set.delete(v) : set.add(v); b.setAttribute("aria-pressed", set.has(v)); updatePool(); };
+    host.appendChild(b);
+  });
+}
+const MODES = [
+  { id:"mix",      t:"섞어서 풀기",   d:"뜻 · 철자 · 유의어 · 반의어를 골고루" },
+  { id:"meaning",  t:"뜻 고르기",     d:"영어 단어를 보고 우리말 뜻 찾기" },
+  { id:"spelling", t:"철자 쓰기",     d:"우리말 뜻을 보고 영어 단어 입력" },
+  { id:"syn",      t:"유의어 고르기", d:"뜻이 가장 비슷한 단어 찾기" },
+  { id:"ant",      t:"반의어 고르기", d:"뜻이 반대인 단어 찾기" }
+];
+const COUNTS = [ {v:10,t:"10문제"}, {v:20,t:"20문제"}, {v:0,t:"전체"} ];
+function buildFree(){
+  const nums = [...new Set(DATA.map(v => v.passage))].sort(natural);
+  const lvls = [...new Set(DATA.map(v => v.cefr))].sort();
+  selNums = new Set(nums); selLevels = new Set(lvls);
+  const drawNums = () => renderChips($("nums"), nums, selNums, p => DATA.filter(v => v.passage === p).length);
+  drawNums();
+  renderChips($("levels"), lvls, selLevels);
+  $("allNums").textContent = "전체 해제";
+  $("allNums").onclick = () => {
+    if (selNums.size === nums.length) selNums.clear(); else nums.forEach(n => selNums.add(n));
+    $("allNums").textContent = selNums.size === nums.length ? "전체 해제" : "전체 선택";
+    drawNums(); updatePool();
+  };
+  $("modes").innerHTML = "";
+  MODES.forEach(m => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "mode";
+    b.setAttribute("aria-pressed", m.id === mode);
+    b.innerHTML = "<b>" + m.t + "</b><span>" + m.d + "</span>";
+    b.onclick = () => { mode = m.id; [...$("modes").children].forEach((c, i) => c.setAttribute("aria-pressed", MODES[i].id === mode)); };
+    $("modes").appendChild(b);
+  });
+  $("counts").innerHTML = "";
+  COUNTS.forEach(c => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = c.t;
+    b.setAttribute("aria-pressed", c.v === qCount);
+    b.onclick = () => { qCount = c.v; [...$("counts").children].forEach((x, i) => x.setAttribute("aria-pressed", COUNTS[i].v === qCount)); };
+    $("counts").appendChild(b);
+  });
+  updatePool();
+}
+const pool = () => DATA.filter(v => selNums.has(v.passage) && selLevels.has(v.cefr));
+function updatePool(){
+  const n = pool().length;
+  $("poolNote").textContent = n ? "선택한 어휘 " + n + "개" : "선택한 범위에 어휘가 없어요.";
+  $("startBtn").disabled = n === 0;
+}
+
+/* ═══════════════ 단어 카드 ═══════════════ */
+function stateTag(b){ return b === 0 ? ["st0","새 단어"] : b === 4 ? ["st2","마스터"] : ["st1","익히는 중"]; }
+function wordCard(v, isCovered, showState){
+  const el = document.createElement("div");
+  el.className = "reveal" + (isCovered ? " covered" : "");
+  const where = "시험지 <mark>" + esc(v.passage) + "</mark>" + (v.also ? " · " + esc(v.also) + "에도 나와요" : "");
+  const tag = showState ? stateTag(ws(v).b) : null;
+  el.innerHTML =
+    '<div class="rv-head"><span class="rv-word">' + esc(v.word) + '</span><span class="lv">' + esc(v.cefr) + '</span>' +
+    (tag ? '<span class="st ' + tag[0] + '">' + tag[1] + '</span>' : "") + '</div>' +
+    '<p class="rv-mean">' + esc(v.meaning) + '</p>' +
+    (v.syn.length ? '<div class="rel syn"><b>유의어</b><span>' + v.syn.map(w => "<i>" + esc(w) + "</i>").join("") + '</span></div>' : "") +
+    (v.ant.length ? '<div class="rel ant"><b>반의어</b><span>' + v.ant.map(w => "<i>" + esc(w) + "</i>").join("") + '</span></div>' : "") +
+    '<p class="rv-tap">탭하면 뜻이 보여요</p>' +
+    '<p class="rv-where">' + where + '</p>';
+  if (isCovered) el.onclick = () => el.classList.toggle("open");
+  return el;
+}
+
+/* ── 단어장 ── */
+function openStudy(){
+  $("studyCount").textContent = DATA.length + "개";
+  const host = $("studyList"); host.innerHTML = "";
+  const groups = {};
+  DATA.forEach(v => (groups[v.passage] = groups[v.passage] || []).push(v));
+  Object.keys(groups).sort(natural).forEach(p => {
+    const h = document.createElement("h3"); h.className = "grp";
+    h.innerHTML = "시험지 " + esc(p) + "<small>" + groups[p].length + "개</small>";
+    host.appendChild(h);
+    groups[p].forEach(v => host.appendChild(wordCard(v, covered, true)));
+  });
+  $("coverBtn").setAttribute("aria-pressed", covered);
+  show("study");
+}
+$("studyBtn").onclick = openStudy;
+$("studyBack").onclick = () => show("home");
+$("coverBtn").onclick = () => { covered = !covered; openStudy(); };
+$("studyGo").onclick = () => startMission();
+
+/* ═══════════════ 문제 만들기 ═══════════════ */
+/* 같은 뜻 무리에 속한 단어를 모아 오답 후보에서 빼서, 정답으로 볼 수 있는 단어가 오답으로 나오지 않게 한다 */
+function cluster(item, key){
+  const mine = new Set([item.word, ...item[key]].map(norm));
+  const banned = new Set(mine);
+  DATA.forEach(e => {
+    const theirs = [e.word, ...e[key]].map(norm);
+    if (theirs.some(t => mine.has(t))) theirs.forEach(t => banned.add(t));
+  });
+  return banned;
+}
+const koParts = m => m.replace(/\(.*?\)/g, "").split(/[·,]/).map(s => s.trim()).filter(Boolean);
+
+function makeQ(item, kind){
+  const base = { item, kind, num: item.passage };
+  if (kind === "meaning"){
+    const bannedWords = cluster(item, "syn");
+    const mine = new Set(koParts(item.meaning));
+    const wrongs = [];
+    shuffle(DATA).forEach(e => {
+      if (wrongs.length >= 3 || e === item || !e.meaning) return;
+      if (bannedWords.has(norm(e.word))) return;
+      if (koParts(e.meaning).some(p => mine.has(p))) return;
+      if (wrongs.includes(e.meaning)) return;
+      wrongs.push(e.meaning);
+    });
+    return { ...base, html:'<div class="q-word">' + esc(item.word) + '</div>', ask:"이 단어의 뜻은?",
+             options: shuffle([item.meaning, ...wrongs]), answers:[item.meaning], ko:true };
+  }
+  if (kind === "spelling"){
+    const words = item.word.split(" ").length;
+    const hint = words > 1 ? words + "단어" : item.word.length + "글자";
+    return { ...base, html:'<div class="q-ko">' + esc(item.meaning) + '</div>',
+             ask:"영어로 써 보세요 · " + hint + " · " + item.word[0] + "(으)로 시작", typed:true, answers:[item.word] };
+  }
+  const key = kind;                       // "syn" | "ant"
+  const right = pickOne(item[key]);
+  const banned = cluster(item, key);
+  const near = (kind === "syn" ? item.ant : item.syn).filter(w => !banned.has(norm(w)) && isPhrase(w) === isPhrase(right));
+  const out = [];
+  if (near.length) out.push(pickOne(near));
+  const bank = shuffle(DATA.filter(v => v !== item).flatMap(v => [v.word, ...v.syn, ...v.ant]));
+  for (const w of bank){
+    if (out.length >= 3) break;
+    if (banned.has(norm(w)) || isPhrase(w) !== isPhrase(right) || out.some(o => norm(o) === norm(w))) continue;
+    out.push(w);
+  }
+  return { ...base, html:'<div class="q-word">' + esc(item.word) + '</div>',
+           ask: kind === "syn" ? "뜻이 가장 비슷한 단어는?" : "뜻이 반대인 단어는?",
+           options: shuffle([right, ...out]), answers:item[key] };
+}
+
+/* 어휘를 익힌 정도(상자)가 높을수록 더 어려운 방식으로 확인한다 */
+const KIND_BY_BOX = [["meaning"], ["meaning","syn"], ["syn","ant"], ["ant","spelling"], ["spelling","syn","ant"]];
+
+function buildQueue(items, limit, kindFn, strict){
+  const lacks = (it, x) => ((x === "syn" && !it.syn.length) || (x === "ant" && !it.ant.length) || ((x === "meaning" || x === "spelling") && !it.meaning));
+  const qs = [];
+  shuffle(items).forEach((it, i) => {
+    let k = kindFn(it, i);
+    if (lacks(it, k)){ if (strict) return; k = ["meaning","syn","ant","spelling"].find(x => !lacks(it, x)); if (!k) return; }
+    qs.push(makeQ(it, k));
+  });
+  return shuffle(qs).slice(0, limit || qs.length);
+}
+
+/* ═══════════════ 복습 기록 (라이트너 상자) ═══════════════ */
+function srsUpdate(item, ok){
+  const k = norm(item.word), t = today(), I = CONFIG.INTERVAL_DAYS;
+  const s = G.words[k] || { b:0, due:0, n:0 };
+  const dueNow = s.b === 0 || s.due <= t;      // 복습할 때가 된 어휘만 단계가 올라간다 (같은 날 반복해도 올라가지 않음)
+  if (ok){ if (dueNow){ s.b = Math.min(4, s.b + 1); s.due = t + I[s.b]; } }
+  else { s.b = 1; s.due = t + I[1]; s.w = (s.w || 0) + 1; }   // 틀리면 1단계로 돌아가 내일 다시 나온다 (틀린 횟수도 기록)
+  s.n = (s.n || 0) + 1;
+  G.words[k] = s;
+}
+function touchStreak(){
+  const t = today(), s = G.streak;
+  if (s.last === t) return;
+  s.count = s.last === t - 1 ? s.count + 1 : 1;
+  s.last = t;
+  G.activeDays = (G.activeDays || 0) + 1;
+}
+
+/* ═══════════════ 진행 ═══════════════ */
+function startMission(){
+  const m = missionPlan();
+  if (!m.items.length) return;
+  startRound(m.items, 0, { mission:true, kindFn: it => pickOne(KIND_BY_BOX[ws(it).b]) });
+}
+function startRound(items, limit, opt){
+  opt = opt || {};
+  const kinds = ["meaning","spelling","syn","ant"];
+  const kindFn = opt.kindFn || ((it, i) => mode === "mix" ? kinds[i % 4] : mode);
+  const strict = opt.kindFn ? false : mode !== "mix";
+  queue = buildQueue(items, limit, kindFn, strict);
+  if (!queue.length){ alert("이 조건으로는 문제를 만들 수 없어요. 범위나 연습 방식을 바꿔 보세요."); show("home"); return; }
+  idx = 0; firstTotal = queue.length; firstCorrect = 0; streak = 0; best = 0; wrong = [];
+  xpGain = 0; stageBefore = stageOf(G.xp); isMission = !!opt.mission;
+  show("quiz"); render();
+}
+$("startBtn").onclick = () => startRound(pool(), qCount);
+$("quitBtn").onclick = () => { if (confirm("연습을 그만할까요? 지금까지 푼 기록은 저장돼요.")) show("home"); };
+
+function setMini(mood, bump){
+  const el = $("miniPet");
+  el.innerHTML = petSVG(G.pet, stageOf(G.xp), mood);
+  el.classList.remove("bump");
+  if (bump){ void el.offsetWidth; el.classList.add("bump"); }
+}
+
+function render(){
+  const q = queue[idx]; answered = false;
+  $("count").textContent = (idx + 1) + " / " + queue.length;
+  $("fill").style.width = (idx / queue.length * 100) + "%";
+  $("streak").textContent = streak >= 2 ? "연속 " + streak : "";
+  $("qNum").textContent = "시험지 " + q.num + (q.again ? " · 다시 도전" : "");
+  $("qLv").textContent = q.item.cefr;
+  $("qPrompt").innerHTML = q.html;
+  $("qAsk").textContent = q.ask;
+  $("verdict").textContent = ""; $("verdict").className = "verdict";
+  $("feedback").innerHTML = ""; $("nextWrap").hidden = true;
+  setMini("smile", false);
+
+  if (q.typed){
+    $("opts").hidden = true; $("spell").hidden = false;
+    $("spellInput").value = ""; $("spellInput").disabled = false; $("spellBtn").disabled = false;
+    $("spellInput").focus();
+  }else{
+    $("spell").hidden = true; $("opts").hidden = false; $("opts").innerHTML = "";
+    q.options.forEach(o => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "opt" + (q.ko ? "" : " en");
+      b.dataset.v = o; b.textContent = o;
+      b.onclick = () => judge(o, b);
+      $("opts").appendChild(b);
+    });
+  }
+}
+
+function judge(given, btn){
+  if (answered) return; answered = true;
+  const q = queue[idx];
+  const ok = q.answers.some(a => norm(a) === norm(given));
+  touchStreak();
+  let gain = 0;
+  if (ok){
+    gain = q.again ? 4 : 10; streak++; best = Math.max(best, streak);
+    if (!q.again) firstCorrect++;
+  }else{
+    streak = 0;
+    if (!q.again){
+      wrong.push(q.item);
+      const again = makeQ(q.item, q.kind === "spelling" ? "meaning" : q.kind);
+      again.again = true; queue.push(again);        // 틀린 어휘는 이번 연습 끝에 한 번 더 나온다
+    }
+  }
+  if (!q.again) srsUpdate(q.item, ok);
+  if (gain){ G.xp += gain; xpGain += gain; }
+  saveG();
+
+  if (q.typed){ $("spellInput").disabled = true; $("spellBtn").disabled = true; }
+  else{
+    [...$("opts").children].forEach(b => {
+      b.disabled = true;
+      if (q.answers.some(a => norm(a) === norm(b.dataset.v))) b.classList.add("correct");
+      else if (b === btn) b.classList.add("wrong");
+    });
+  }
+  $("verdict").className = "verdict " + (ok ? "ok" : "no");
+  $("verdict").textContent = ok ? "정답 +" + gain + " XP"
+    : (q.typed ? "정답: " + q.item.word : "오답") + (q.again ? "" : " · 이따가 한 번 더 나와요");
+  $("feedback").appendChild(wordCard(q.item, false, false));
+  $("streak").textContent = streak >= 2 ? "연속 " + streak : "";
+  setMini(ok ? "cheer" : "sad", ok);
+  $("nextWrap").hidden = false;
+  $("nextBtn").scrollIntoView({ block:"nearest", behavior:"smooth" });
+}
+$("spellBtn").onclick = () => { const v = $("spellInput").value; if (v.trim()) judge(v, null); };
+$("spellInput").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("spellBtn").click(); } });
+$("nextBtn").onclick = () => { idx++; idx < queue.length ? render() : finish(); };
+
+/* ═══════════════ 결과 ═══════════════ */
+function finish(){
+  $("fill").style.width = "100%";
+  let bonus = 0;
+  if (isMission && G.missionDay !== today()){
+    G.missionDay = today(); bonus = CONFIG.MISSION_BONUS_XP; G.xp += bonus; xpGain += bonus;
+  }
+  saveG();
+
+  const stageAfter = stageOf(G.xp), p = PETS.find(x => x.id === G.pet);
+  if (stageAfter === MAXS() && !G.legendDate){ G.legendDate = dateStr(); saveG(); }
+  const ln = $("legendNote");
+  ln.hidden = !(stageAfter === MAXS() && stageBefore < MAXS() && formReady());
+  ln.textContent = "전설이 되었어요! 홈 화면에서 선생님께 알릴 수 있어요. 알릴지는 내가 정해요.";
+  const pct = firstTotal ? Math.round(firstCorrect / firstTotal * 100) : 0;
+  $("resPet").innerHTML = petSVG(G.pet, stageAfter, "cheer");
+  const msg = $("resMsg");
+  if (stageAfter > stageBefore){
+    msg.className = "res-msg up";
+    msg.textContent = stageBefore === 0 ? "알이 부화했어요! " + p.name + "(이)가 태어났어요" : p.name + "(이)가 " + STAGE_NAMES[stageAfter] + " 단계로 성장했어요!";
+  }else{
+    msg.className = "res-msg";
+    msg.textContent = pct >= 80 ? p.name + ": 정말 잘했어!" : p.name + ": 틀린 건 내일 또 만나자!";
+  }
+  $("rScore").textContent = pct;
+  $("rLine").textContent = "정답 " + firstCorrect + " / " + firstTotal + (best >= 3 ? "  ·  최고 연속 " + best : "");
+  $("xpLine").textContent = "+" + xpGain + " XP" + (bonus ? " (오늘의 연습 보너스 +" + bonus + " 포함)" : "");
+
+  lastWrong = [...new Set(wrong)];
+  const host = $("rReview"); host.innerHTML = "";
+  if (lastWrong.length){
+    const h = document.createElement("p"); h.className = "legend"; h.textContent = "다시 볼 어휘 " + lastWrong.length + "개";
+    host.appendChild(h);
+    lastWrong.forEach(v => host.appendChild(wordCard(v, false, false)));
+  }else{
+    const t = document.createElement("p"); t.className = "note"; t.textContent = "틀린 문제가 없어요!";
+    host.appendChild(t);
+  }
+  $("retryBtn").hidden = lastWrong.length === 0;
+  show("result");
+}
+$("retryBtn").onclick = () => startRound(lastWrong, 0);
+$("againBtn").onclick = () => show("home");
+
+boot();
+</script>
+
+<!--
+════════════════════════════════════════════════════════════════
+ 선생님용 안내 — exam-practice.html
+════════════════════════════════════════════════════════════════
+
+[1] 이 사이트는 어떻게 동작하나요
+  - 학생은 이름 없이 캐릭터 한 마리를 고르고, 문제를 풀어 경험치(XP)를 모아 알 → 어휘 새싹 → 어휘 수집가 → 어휘 고수 → 어휘 전설 단계로 키웁니다.
+  - '오늘의 연습'은 복습할 때가 된 어휘를 먼저, 그다음 새 단어를 내 줍니다.
+    (라이트너 상자 방식: 맞히면 복습 간격이 1일 → 3일 → 7일 → 14일로 늘고, 틀리면 1단계로 돌아가 내일 다시 나옵니다.
+     같은 날 여러 번 맞혀도 단계는 한 번만 올라갑니다.)
+  - 어휘를 익힌 정도에 따라 문제 방식이 어려워집니다 (뜻 → 유의어/반의어 → 철자 쓰기).
+  - 학습 기록은 학생 폰의 브라우저(localStorage)에만 저장됩니다. 선생님께 자동으로 전송되거나 수집되지 않습니다.
+    다른 기기나 다른 브라우저, 사생활 보호 모드에서는 기록이 이어지지 않습니다.
+  - 전설 단계는 XP(기본 1000)에 더해 '마스터' 어휘가 60개(LEGEND_MASTER_COUNT) 이상이어야 합니다.
+    마스터는 복습 4단계에 도달한 어휘이며, 복습 간격상 처음 본 날부터 최소 11일이 걸립니다.
+  - 설정 값(오늘의 연습 개수, 보너스 XP, 단계별 XP, 복습 간격)은 파일 위쪽 CONFIG 에서 바꿀 수 있습니다.
+
+[2] 어휘 관리 (구글 시트)
+  시트 첫 줄(머리글)은 아래와 같이 씁니다. 순서는 상관없습니다.
+    passage | word | meaning | cefr | syn1 | syn2 | syn3 | ant1 | ant2 | ant3 | also
+  - passage : 시험지 문항 번호 (예: 10번). 같은 값끼리 묶여 범위 선택 칩과 단어장 묶음이 됩니다.
+  - also    : 다른 문항에도 나온 경우의 번호 (선택). 학생 화면에 "21번에도 나와요"로 표시됩니다.
+  - synonyms / antonyms 열에 쉼표나 세미콜론으로 묶어 써도 됩니다.
+  연결 방법: 시트에서 [파일 → 공유 → 웹에 게시 → 시트 선택, 쉼표로 구분된 값(.csv)]을 고른 뒤
+  나온 주소를 CONFIG.SHEET_CSV_URL 에 붙여넣으세요. 시트를 고치면 새로고침 때 반영됩니다
+  (게시 주소는 수 분 정도 늦게 갱신될 수 있습니다).
+  연결하지 않으면 파일 안의 FALLBACK_CSV 어휘로 동작합니다.
+  ※ 어휘를 고치거나 지워도 학생의 복습 기록은 단어 철자를 기준으로 이어집니다.
+
+[3] 전설 달성 알림 받기 (선택, 학생이 직접 제출할 때만 전달)
+  전설이 된 학생에게만 [선생님께 알리기] 화면이 나타납니다. 학생이 이름을 적고 버튼을 누르면 값이 채워진 구글 폼이 열리고,
+  학생이 폼에서 [제출]을 눌러야만 선생님 시트에 쌓입니다. 제출 버튼을 누르지 않으면 아무것도 전달되지 않습니다.
+  전달되는 내용: 이름 · 캐릭터 · 전설 달성일 · 마스터 어휘 수 · 연습한 날 수 · 자주 틀린 어휘 5개(문항 번호 포함)
+  ※ '반'처럼 폼에서 학생이 직접 고르는 문항은 폼에 자유롭게 추가해도 됩니다. 사이트가 채우지 않으므로 CONFIG.FORM_MANUAL_ITEMS 에
+     항목 이름을 적어 두면 학생 미리보기에 '제출 화면에서 직접 입력'으로 함께 표시됩니다.
+  ① 구글 폼에 위 여섯 항목에 해당하는 단답형(자주 틀린 어휘는 장문형) 문항 6개를 만듭니다.
+  ② 폼 우측 상단 ⋮ → [미리 채워진 링크 가져오기]에서 여섯 칸에 아무 값이나 적고 [링크 가져오기]를 누릅니다.
+  ③ 복사된 주소에서 entry.숫자 여섯 개를 찾아 CONFIG.FORM_FIELDS 의 who / pet / date / mastered / days / weak 에 순서대로 넣고,
+     주소의 앞부분(…/viewform)을 CONFIG.FORM_URL 에 넣습니다. 하나라도 비어 있으면 학생에게 이 기능이 보이지 않습니다.
+  ※ 기록은 학생 폰에 저장되므로 조작이 가능합니다. 평가가 아니라 격려와 피드백 용도로 쓰세요.
+
+[4] 올리기
+  이 파일 하나만 GitHub Pages, Netlify Drop, 구글 사이트 도구 등에 올리면 됩니다.
+  주소를 QR 코드로 만들어 두면 학생들이 스마트폰으로 바로 접속할 수 있습니다.
+-->
+</body>
+</html>
